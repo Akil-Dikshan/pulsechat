@@ -1,32 +1,25 @@
-import { useAuthContext } from "@asgardeo/auth-react"
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Callback from './pages/Callback'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
-  const { state, signIn, signOut } = useAuthContext()
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-8">
-          Hello hutto
-        </h1>
-        {state.isAuthenticated ? (
-          <div>
-            <p className="mb-4">Welcome, {state.username}</p>
-            <button
-              onClick={() => signOut()}
-              className="bg-destructive text-destructive-foreground px-6 py-2 rounded-md"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : <button
-            onClick={() => signIn()}
-            className="bg-primary text-primary-foreground px-6 py-2 rounded-md"
-          >
-            Sign In
-          </button>}
-      </div>
-
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/callback" element={<Callback />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
