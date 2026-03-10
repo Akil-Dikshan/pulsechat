@@ -1,14 +1,14 @@
-import { useAuthContext } from '@asgardeo/auth-react'
-import { Navigate } from 'react-router-dom'
+import { useAuthContext } from "@asgardeo/auth-react";
+import { Navigate } from "react-router-dom";
 
 function ProtectedRoute({ children }) {
-  const { state } = useAuthContext()
+  const { state } = useAuthContext();
 
   if (!state.isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace />;
   }
 
-  return children
+  return children;
 }
 
-export default ProtectedRoute
+export default ProtectedRoute;
