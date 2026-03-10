@@ -1,7 +1,7 @@
-import { useAuthContext } from '@asgardeo/auth-react'
+import { useAuthContext } from "@asgardeo/auth-react";
 
 function Dashboard() {
-  const { state, signOut } = useAuthContext()
+  const { state, signOut } = useAuthContext();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -31,7 +31,7 @@ function Dashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;
