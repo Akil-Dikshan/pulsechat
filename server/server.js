@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
+import usersRouter from "./routes/users.js";
 
 dotenv.config();
 
@@ -11,7 +12,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes (placeholder for now)
+// Routes
+app.use("/api/users", usersRouter);
+
 app.get("/", (req, res) => {
   res.json({ message: "PulseChat server is running" });
 });
