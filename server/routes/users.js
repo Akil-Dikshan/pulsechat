@@ -1,9 +1,10 @@
 import express from "express";
 import User from "../models/User.js";
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/sync", async (req, res) => {
+router.post("/sync", authMiddleware, async (req, res) => {
   try {
     const { asgardeoId, username, email, avatar } = req.body;
 
