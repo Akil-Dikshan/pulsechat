@@ -1,7 +1,37 @@
+import { useEffect } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 
 function Dashboard() {
-  const { state, signOut } = useAuthContext();
+  const { state, signOut, getAccessToken, getBasicUserInfo } = useAuthContext();
+
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const token = await getAccessToken();
+        const userInfo = await getBasicUserInfo();
+
+        await fetch(`${import.meta.env.VITE_API_URL}/api/users/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            asgardeoId: userInfo.sub,
+            username: userInfo.username,
+            email: userInfo.email || userInfo.username,
+            avatar: userInfo.picture || "",
+          }),
+        });
+      } catch (error) {
+        console.error("User sync failed:", error);
+      }
+    };
+
+    if (state.isAuthenticated) {
+      syncUser();
+    }
+  }, [state.isAuthenticated]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
