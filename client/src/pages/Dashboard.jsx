@@ -2,13 +2,12 @@ import { useEffect } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 
 function Dashboard() {
-  const { state, signOut, getAccessToken, getBasicUserInfo } = useAuthContext();
+  const { state, signOut, getAccessToken } = useAuthContext();
 
   useEffect(() => {
     const syncUser = async () => {
       try {
         const token = await getAccessToken();
-        const userInfo = await getBasicUserInfo();
 
         await fetch(`${import.meta.env.VITE_API_URL}/api/users/sync`, {
           method: "POST",
@@ -16,12 +15,7 @@ function Dashboard() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            asgardeoId: userInfo.sub,
-            username: userInfo.username,
-            email: userInfo.email || userInfo.username,
-            avatar: userInfo.picture || "",
-          }),
+          body: JSON.stringify({}),
         });
       } catch (error) {
         console.error("User sync failed:", error);
