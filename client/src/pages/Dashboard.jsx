@@ -1,6 +1,16 @@
 import { useEffect } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
+import { io } from "socket.io-client";
 
+const socket = io("http://localhost:5000", {
+  auth: { token: "Bearer 3ec25eb3-2334-38e5-a4ca-307ee2de6b3f" },
+});
+socket.on("connect", () => {
+  console.log("Socket connected with auth:", socket.id);
+});
+socket.on("connect_error", (err) => {
+  console.log("Connection error:", err.message);
+});
 function Dashboard() {
   const { state, signOut, getAccessToken } = useAuthContext();
 
