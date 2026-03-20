@@ -5,6 +5,7 @@ import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import usersRouter from "./routes/users.js";
+import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.get("/", (req, res) => {
 });
 
 // Socket.io
+io.use(socketAuthMiddleware);
 io.on("connection", (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
