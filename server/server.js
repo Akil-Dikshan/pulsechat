@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import usersRouter from "./routes/users.js";
 import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
-
+import initSocketHandlers from "./sockets/socketHandlers.js";
 dotenv.config();
 
 const app = express();
@@ -32,13 +32,7 @@ app.get("/", (req, res) => {
 
 // Socket.io
 io.use(socketAuthMiddleware);
-io.on("connection", (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
-
-  socket.on("disconnect", () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-  });
-});
+initSocketHandlers(io);
 
 // Connect to MongoDB then start server
 const PORT = process.env.PORT || 5000;
