@@ -7,6 +7,7 @@ import { Server } from "socket.io";
 import usersRouter from "./routes/users.js";
 import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 import initSocketHandlers from "./sockets/socketHandlers.js";
+import messagesRouter from "./routes/messages.js";
 dotenv.config();
 
 const app = express();
@@ -25,6 +26,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/users", usersRouter);
+app.use("/api/messages", messagesRouter);
 
 app.get("/", (req, res) => {
   res.json({ message: "PulseChat server is running" });
