@@ -1,29 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 import ConversationList from "../components/ConversationList";
+import ChatWindow from "../components/ChatWindow";
 
 function Dashboard() {
-  const { state, signOut } = useAuthContext();
+  const { state, signOut, getAccessToken } = useAuthContext();
   const [selectedUser, setSelectedUser] = useState(null);
-  const { getAccessToken } = useAuthContext();
 
-  const syncUser = async () => {
-    try {
-      const token = await getAccessToken();
-      await fetch(`${import.meta.env.VITE_API_URL}/api/users/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({}),
-      });
-    } catch (error) {
-      console.error("User sync failed:", error);
-    }
-  };
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const token = await getAccessToken();
+        await fetch(`${import.meta.env.VITE_API_URL}/api/users/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        });
+      } catch (error) {
+        console.error("User sync failed:", error);
+      }
+    };
 
-  useState(() => {
     if (state.isAuthenticated) {
       syncUser();
     }
@@ -51,23 +51,7 @@ function Dashboard() {
           onSelectUser={setSelectedUser}
           selectedUser={selectedUser}
         />
-
-        <main className="flex-1 flex items-center justify-center">
-          {selectedUser ? (
-            <p className="text-muted-foreground">
-              Chat with {selectedUser.username} coming soon...
-            </p>
-          ) : (
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">
-                Welcome back, {state.username}
-              </h2>
-              <p className="text-muted-foreground">
-                Search for a user to start chatting.
-              </p>
-            </div>
-          )}
-        </main>
+        <ChatWindow selectedUser={selectedUser} />
       </div>
     </div>
   );
