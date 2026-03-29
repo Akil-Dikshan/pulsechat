@@ -1,13 +1,41 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
+import MessageBubble from "./MessageBubble";
 
 function ChatWindow({ selectedUser }) {
   const { getAccessToken } = useAuthContext();
   const { socket } = useSocket();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const bottomRef = useRef(null);
+
+  // Get current user's MongoDB _id
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/sync`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          }
+        );
+        const data = await res.json();
+        setCurrentUserId(data._id);
+      } catch (error) {
+        console.error("Failed to fetch current user:", error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   // Load message history when selected user changes
   useEffect(() => {
@@ -91,7 +119,7 @@ function ChatWindow({ selectedUser }) {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
         {loading && (
           <p className="text-sm text-muted-foreground text-center">
             Loading messages...
@@ -105,17 +133,11 @@ function ChatWindow({ selectedUser }) {
         )}
 
         {messages.map((message) => (
-          <div
+          <MessageBubble
             key={message._id}
-            className="flex flex-col"
-          >
-            <p className="text-xs text-muted-foreground mb-1">
-              {message.sender.username}
-            </p>
-            <div className="bg-accent rounded-lg px-3 py-2 max-w-xs">
-              <p className="text-sm">{message.content}</p>
-            </div>
-          </div>
+            message={message}
+            currentUserId={currentUserId}
+          />
         ))}
 
         <div ref={bottomRef} />
