@@ -44,7 +44,7 @@ export const searchUsers = async (req, res) => {
       username: { $regex: q, $options: "i" },
       asgardeoId: { $ne: req.user.sub },
     })
-      .select("username email avatar status lastSeen")
+      .select("username email avatar status lastSeen asgardeoId")
       .limit(10);
 
     res.status(200).json(users);

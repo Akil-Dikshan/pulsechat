@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
 import MessageBubble from "./MessageBubble";
+import MessageInput from "./MessageInput";
 
 function ChatWindow({ selectedUser }) {
   const { getAccessToken } = useAuthContext();
@@ -141,6 +142,8 @@ function ChatWindow({ selectedUser }) {
         ))}
 
         <div ref={bottomRef} />
+        {/* Message input */}
+        <MessageInput selectedUser={selectedUser} />
       </div>
     </div>
   );
