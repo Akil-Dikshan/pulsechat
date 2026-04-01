@@ -10,7 +10,11 @@ function ChatWindow({ selectedUser }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const bottomRef = useRef(null);
+  const topRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   // Get current user's MongoDB _id
   useEffect(() => {
@@ -38,7 +42,16 @@ function ChatWindow({ selectedUser }) {
     fetchCurrentUser();
   }, []);
 
-  // Load message history when selected user changes
+  // Reset and load messages when selected user changes
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    setMessages([]);
+    setPage(1);
+    setHasMore(true);
+  }, [selectedUser]);
+
+  // Load messages when page or selectedUser changes
   useEffect(() => {
     if (!selectedUser) return;
 
@@ -48,7 +61,7 @@ function ChatWindow({ selectedUser }) {
         const token = await getAccessToken();
 
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/messages/${selectedUser._id}`,
+          `${import.meta.env.VITE_API_URL}/api/messages/${selectedUser._id}?page=${page}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -57,7 +70,26 @@ function ChatWindow({ selectedUser }) {
         );
 
         const data = await res.json();
-        setMessages(data);
+
+        if (data.length < 50) {
+          setHasMore(false);
+        }
+
+        if (page === 1) {
+          setMessages(data);
+        } else {
+          // Preserve scroll position when prepending older messages
+          const container = messagesContainerRef.current;
+          const prevScrollHeight = container?.scrollHeight || 0;
+
+          setMessages((prev) => [...data, ...prev]);
+
+          requestAnimationFrame(() => {
+            if (container) {
+              container.scrollTop = container.scrollHeight - prevScrollHeight;
+            }
+          });
+        }
       } catch (error) {
         console.error("Failed to load messages:", error);
       } finally {
@@ -66,7 +98,27 @@ function ChatWindow({ selectedUser }) {
     };
 
     loadMessages();
-  }, [selectedUser]);
+  }, [selectedUser, page]);
+
+  // Infinite scroll — watch the top sentinel element
+  useEffect(() => {
+    if (!hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (topRef.current) {
+      observer.observe(topRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loading]);
 
   // Listen for incoming messages via socket
   useEffect(() => {
@@ -89,10 +141,12 @@ function ChatWindow({ selectedUser }) {
     };
   }, [socket]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom only on first page load and new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (page === 1) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, page]);
 
   if (!selectedUser) {
     return (
@@ -120,10 +174,28 @@ function ChatWindow({ selectedUser }) {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-        {loading && (
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
+      >
+        {/* Top sentinel — triggers infinite scroll */}
+        <div ref={topRef} />
+
+        {loading && page === 1 && (
           <p className="text-sm text-muted-foreground text-center">
             Loading messages...
+          </p>
+        )}
+
+        {loading && page > 1 && (
+          <p className="text-sm text-muted-foreground text-center">
+            Loading older messages...
+          </p>
+        )}
+
+        {!hasMore && messages.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            No more messages
           </p>
         )}
 
@@ -142,9 +214,10 @@ function ChatWindow({ selectedUser }) {
         ))}
 
         <div ref={bottomRef} />
-        {/* Message input */}
-        <MessageInput selectedUser={selectedUser} />
       </div>
+
+      {/* Message input */}
+      <MessageInput selectedUser={selectedUser} />
     </div>
   );
 }
