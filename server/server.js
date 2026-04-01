@@ -8,6 +8,7 @@ import usersRouter from "./routes/users.js";
 import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 import initSocketHandlers from "./sockets/socketHandlers.js";
 import messagesRouter from "./routes/messages.js";
+import "./utils/redisClient.js";
 dotenv.config();
 
 const app = express();
