@@ -1,5 +1,6 @@
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import redis from "../utils/redisClient.js";
 
 const userSocketMap = {};
 
@@ -8,15 +9,18 @@ export const getSocketId = (asgardeoId) => {
 };
 
 const initSocketHandlers = (io) => {
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const { sub, username } = socket.user;
 
     console.log(`User connected: ${username || sub} (socket: ${socket.id})`);
 
+    // Add to in-memory map
     userSocketMap[sub] = socket.id;
     console.log("Online users:", Object.keys(userSocketMap).length);
 
-    // private_message event
+    // Mark as online in Redis
+    await redis.set(`online:${sub}`, "true");
+
     socket.on("private_message", async ({ recipientId, content }) => {
       try {
         const sender = await User.findOne({ asgardeoId: sub });
@@ -54,10 +58,21 @@ const initSocketHandlers = (io) => {
       }
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log(`User disconnected: ${username || sub} (socket: ${socket.id})`);
+
+      // Remove from in-memory map
       delete userSocketMap[sub];
       console.log("Online users:", Object.keys(userSocketMap).length);
+
+      // Remove from Redis
+      await redis.del(`online:${sub}`);
+
+      // Update lastSeen in MongoDB
+      await User.findOneAndUpdate(
+        { asgardeoId: sub },
+        { lastSeen: new Date(), status: "offline" }
+      );
     });
   });
 };
