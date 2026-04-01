@@ -8,6 +8,29 @@ export const getSocketId = (asgardeoId) => {
   return userSocketMap[asgardeoId];
 };
 
+const getConversationPartners = async (asgardeoId) => {
+  const user = await User.findOne({ asgardeoId });
+  if (!user) return [];
+
+  const messages = await Message.find({
+    $or: [{ sender: user._id }, { recipient: user._id }],
+  }).select("sender recipient");
+
+  const partnerIds = new Set();
+  messages.forEach((msg) => {
+    const senderId = msg.sender.toString();
+    const recipientId = msg.recipient.toString();
+    if (senderId !== user._id.toString()) partnerIds.add(senderId);
+    if (recipientId !== user._id.toString()) partnerIds.add(recipientId);
+  });
+
+  const partners = await User.find({
+    _id: { $in: Array.from(partnerIds) },
+  }).select("asgardeoId");
+
+  return partners.map((p) => p.asgardeoId);
+};
+
 const initSocketHandlers = (io) => {
   io.on("connection", async (socket) => {
     const { sub, username } = socket.user;
@@ -20,6 +43,15 @@ const initSocketHandlers = (io) => {
 
     // Mark as online in Redis
     await redis.set(`online:${sub}`, "true");
+
+    // Notify conversation partners that this user is online
+    const partners = await getConversationPartners(sub);
+    partners.forEach((partnerId) => {
+      const partnerSocketId = getSocketId(partnerId);
+      if (partnerSocketId) {
+        io.to(partnerSocketId).emit("user_online", { userId: sub });
+      }
+    });
 
     socket.on("private_message", async ({ recipientId, content }) => {
       try {
