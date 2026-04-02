@@ -52,6 +52,9 @@ const initSocketHandlers = (io) => {
         io.to(partnerSocketId).emit("user_online", { userId: sub });
       }
     });
+    // Send currently online partners to the newly connected user
+    const onlinePartners = partners.filter((partnerId) => getSocketId(partnerId));
+    socket.emit("online_users", { userIds: onlinePartners });
 
     socket.on("private_message", async ({ recipientId, content }) => {
       try {

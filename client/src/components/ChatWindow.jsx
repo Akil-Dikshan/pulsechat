@@ -3,6 +3,7 @@ import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
+import OnlineStatus from "./OnlineStatus";
 
 function ChatWindow({ selectedUser }) {
   const { getAccessToken } = useAuthContext();
@@ -170,6 +171,10 @@ function ChatWindow({ selectedUser }) {
         </div>
         <div>
           <p className="font-medium">{selectedUser.username}</p>
+          <OnlineStatus
+            userId={selectedUser.asgardeoId}
+            lastSeen={selectedUser.lastSeen}
+          />
         </div>
       </div>
 
