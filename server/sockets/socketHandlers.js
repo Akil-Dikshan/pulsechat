@@ -92,6 +92,19 @@ const initSocketHandlers = (io) => {
         socket.emit("error", { message: "Failed to send message" });
       }
     });
+    socket.on("typing_start", ({ recipientId }) => {
+      const recipientSocketId = getSocketId(recipientId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit("typing_start", { senderId: sub });
+      }
+    });
+
+    socket.on("typing_stop", ({ recipientId }) => {
+      const recipientSocketId = getSocketId(recipientId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit("typing_stop", { senderId: sub });
+      }
+    });
 
     socket.on("disconnect", async () => {
       console.log(`User disconnected: ${username || sub} (socket: ${socket.id})`);
