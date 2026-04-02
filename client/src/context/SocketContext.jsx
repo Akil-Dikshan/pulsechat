@@ -9,6 +9,7 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const { state, getAccessToken } = useAuthContext();
   const [socket, setSocket] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
 
   useEffect(() => {
     if (!state.isAuthenticated) {
@@ -16,6 +17,7 @@ export const SocketProvider = ({ children }) => {
         socket.disconnect();
         setSocket(null);
       }
+      setOnlineUsers(new Set());
       return;
     }
 
@@ -35,6 +37,20 @@ export const SocketProvider = ({ children }) => {
           console.error("Socket connection error:", err.message);
         });
 
+        newSocket.on("user_online", ({ userId }) => {
+          setOnlineUsers((prev) => new Set([...prev, userId]));
+        });
+        newSocket.on("user_offline", ({ userId }) => {
+          setOnlineUsers((prev) => {
+            const next = new Set(prev);
+            next.delete(userId);
+            return next;
+          });
+        });
+        newSocket.on("online_users", ({ userIds }) => {
+          setOnlineUsers(new Set(userIds));
+        });
+
         setSocket(newSocket);
       } catch (error) {
         console.error("Failed to connect socket:", error);
@@ -49,7 +65,7 @@ export const SocketProvider = ({ children }) => {
   }, [state.isAuthenticated]);
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={{ socket, onlineUsers }}>
       {children}
     </SocketContext.Provider>
   );
