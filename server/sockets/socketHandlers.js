@@ -105,6 +105,15 @@ const initSocketHandlers = (io) => {
         { asgardeoId: sub },
         { lastSeen: new Date(), status: "offline" }
       );
+
+      // Notify conversation partners that this user is offline
+      const partners = await getConversationPartners(sub);
+      partners.forEach((partnerId) => {
+        const partnerSocketId = getSocketId(partnerId);
+        if (partnerSocketId) {
+          io.to(partnerSocketId).emit("user_offline", { userId: sub });
+        }
+      });
     });
   });
 };
