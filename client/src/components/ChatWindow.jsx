@@ -4,6 +4,7 @@ import { useSocket } from "../context/SocketContext";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import OnlineStatus from "./OnlineStatus";
+import TypingIndicator from "./TypingIndicator";
 
 function ChatWindow({ selectedUser }) {
   const { getAccessToken } = useAuthContext();
@@ -220,6 +221,9 @@ function ChatWindow({ selectedUser }) {
 
         <div ref={bottomRef} />
       </div>
+
+      {/* Typing indicator */}
+      <TypingIndicator selectedUser={selectedUser} />
 
       {/* Message input */}
       <MessageInput selectedUser={selectedUser} />
