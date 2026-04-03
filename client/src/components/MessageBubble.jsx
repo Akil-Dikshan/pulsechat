@@ -6,6 +6,22 @@ function MessageBubble({ message, currentUserId }) {
     minute: "2-digit",
   });
 
+  const ReadReceipt = () => {
+    if (!isSent) return null;
+
+    if (message.read) {
+      // Double blue tick — read
+      return (
+        <span className="text-blue-500 text-xs">✓✓</span>
+      );
+    }
+
+    // Single grey tick — sent
+    return (
+      <span className="text-muted-foreground text-xs">✓</span>
+    );
+  };
+
   return (
     <div className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}>
       {!isSent && (
@@ -22,7 +38,10 @@ function MessageBubble({ message, currentUserId }) {
       >
         <p className="text-sm">{message.content}</p>
       </div>
-      <p className="text-xs text-muted-foreground mt-1 px-1">{formattedTime}</p>
+      <div className={`flex items-center gap-1 mt-1 px-1 ${isSent ? "flex-row-reverse" : ""}`}>
+        <p className="text-xs text-muted-foreground">{formattedTime}</p>
+        <ReadReceipt />
+      </div>
     </div>
   );
 }
