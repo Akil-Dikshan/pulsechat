@@ -139,12 +139,22 @@ function ChatWindow({ selectedUser }) {
       setMessages((prev) => [...prev, message]);
     };
 
+    const handleMessagesRead = ({ byUserId }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.sender._id === currentUserId ? { ...msg, read: true } : msg
+        )
+      );
+    };
+
     socket.on("private_message", handlePrivateMessage);
     socket.on("message_sent", handleMessageSent);
+    socket.on("messages_read", handleMessagesRead);
 
     return () => {
       socket.off("private_message", handlePrivateMessage);
       socket.off("message_sent", handleMessageSent);
+      socket.off("messages_read", handleMessagesRead);
     };
   }, [socket]);
 
