@@ -77,6 +77,11 @@ function ChatWindow({ selectedUser }) {
           setHasMore(false);
         }
 
+        // Mark messages as read when conversation is opened
+        if (socket && page === 1) {
+          socket.emit("mark_as_read", { senderId: selectedUser.asgardeoId });
+        }
+
         if (page === 1) {
           setMessages(data);
         } else {

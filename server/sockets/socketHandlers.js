@@ -106,6 +106,32 @@ const initSocketHandlers = (io) => {
       }
     });
 
+    socket.on("mark_as_read", async ({ senderId }) => {
+      try {
+        const me = await User.findOne({ asgardeoId: sub });
+        const sender = await User.findOne({ asgardeoId: senderId });
+
+        if (!me || !sender) return;
+
+        // Mark all unread messages from sender to me as read
+        await Message.updateMany(
+          {
+            sender: sender._id,
+            recipient: me._id,
+            read: false,
+          },
+          { $set: { read: true } }
+        );
+
+        // Notify the sender that their messages were read
+        const senderSocketId = getSocketId(senderId);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messages_read", { byUserId: sub });
+        }
+      } catch (error) {
+        console.error("Error in mark_as_read:", error);
+      }
+    });
     socket.on("disconnect", async () => {
       console.log(`User disconnected: ${username || sub} (socket: ${socket.id})`);
 
