@@ -9,6 +9,7 @@ import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 import initSocketHandlers from "./sockets/socketHandlers.js";
 import messagesRouter from "./routes/messages.js";
 import "./utils/redisClient.js";
+import uploadRouter from "./routes/upload.js";
 dotenv.config();
 
 const app = express();
@@ -32,7 +33,7 @@ app.use("/api/messages", messagesRouter);
 app.get("/", (req, res) => {
   res.json({ message: "PulseChat server is running" });
 });
-
+app.use("/api/upload", uploadRouter);
 // Socket.io
 io.use(socketAuthMiddleware);
 initSocketHandlers(io);
