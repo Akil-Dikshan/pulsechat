@@ -56,7 +56,7 @@ const initSocketHandlers = (io) => {
     const onlinePartners = partners.filter((partnerId) => getSocketId(partnerId));
     socket.emit("online_users", { userIds: onlinePartners });
 
-    socket.on("private_message", async ({ recipientId, content }) => {
+    socket.on("private_message", async ({ recipientId, content, type, fileName }) => {
       try {
         const sender = await User.findOne({ asgardeoId: sub });
 
@@ -74,9 +74,9 @@ const initSocketHandlers = (io) => {
           sender: sender._id,
           recipient: recipient._id,
           content,
-          type: "text",
+          type: type || "text",
+          fileUrl: type === "image" || type === "file" ? content : "",
         });
-
         const populatedMessage = await Message.findById(message._id)
           .populate("sender", "username avatar")
           .populate("recipient", "username avatar");

@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
 
 function MessageInput({ selectedUser }) {
+  const { getAccessToken } = useAuthContext();
   const { socket } = useSocket();
   const [content, setContent] = useState("");
+  const [uploading, setUploading] = useState(false);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
+  const fileInputRef = useRef(null);
 
   const sendMessage = () => {
     if (!content.trim() || !socket || !selectedUser) return;
@@ -15,7 +19,6 @@ function MessageInput({ selectedUser }) {
       content: content.trim(),
     });
 
-    // Stop typing indicator when message is sent
     if (isTypingRef.current) {
       socket.emit("typing_stop", { recipientId: selectedUser.asgardeoId });
       isTypingRef.current = false;
@@ -40,25 +43,63 @@ function MessageInput({ selectedUser }) {
 
     if (!socket || !selectedUser) return;
 
-    // Emit typing_start if not already typing
     if (!isTypingRef.current) {
       socket.emit("typing_start", { recipientId: selectedUser.asgardeoId });
       isTypingRef.current = true;
     }
 
-    // Reset the debounce timer
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // After 3 seconds of no typing, emit typing_stop
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit("typing_stop", { recipientId: selectedUser.asgardeoId });
       isTypingRef.current = false;
     }, 3000);
   };
 
-  // Cleanup on unmount
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !socket || !selectedUser) return;
+
+    try {
+      setUploading(true);
+      const token = await getAccessToken();
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Upload failed");
+        return;
+      }
+
+      const { url, type, name } = await res.json();
+
+      socket.emit("private_message", {
+        recipientId: selectedUser.asgardeoId,
+        content: url,
+        type,
+        fileName: name,
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      alert("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
@@ -69,6 +110,31 @@ function MessageInput({ selectedUser }) {
 
   return (
     <div className="px-6 py-4 border-t border-border flex items-center gap-3 flex-shrink-0">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/jpeg,image/png,image/gif,application/pdf"
+        className="hidden"
+      />
+
+      {/* Paperclip button */}
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        title="Attach file"
+      >
+        {uploading ? (
+          <span className="text-xs">Uploading...</span>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+        )}
+      </button>
+
       <input
         type="text"
         placeholder="Type a message..."
