@@ -135,6 +135,43 @@ const initSocketHandlers = (io) => {
       }
     });
 
+    socket.on("room_message", async ({ roomId, content, type, fileName }) => {
+      try {
+        const sender = await User.findOne({ asgardeoId: sub });
+        if (!sender) {
+          return socket.emit("error", { message: "Sender not found" });
+        }
+
+        const room = await Room.findById(roomId);
+        if (!room) {
+          return socket.emit("error", { message: "Room not found" });
+        }
+
+        // Save message to MongoDB
+        const message = await Message.create({
+          sender: sender._id,
+          room: roomId,
+          content,
+          type: type || "text",
+          fileUrl: type === "image" || type === "file" ? content : "",
+        });
+
+        // Update room's lastMessage
+        await Room.findByIdAndUpdate(roomId, { lastMessage: message._id });
+
+        // Populate sender info
+        const populatedMessage = await Message.findById(message._id)
+          .populate("sender", "username avatar")
+          .populate("room", "name");
+
+        // Emit to all sockets in the room
+        io.to(roomId).emit("room_message", populatedMessage);
+      } catch (error) {
+        console.error("Error in room_message:", error);
+        socket.emit("error", { message: "Failed to send message" });
+      }
+    });
+
     socket.on("mark_as_read", async ({ senderId }) => {
       try {
         const me = await User.findOne({ asgardeoId: sub });
