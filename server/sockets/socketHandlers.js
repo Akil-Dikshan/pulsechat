@@ -1,3 +1,4 @@
+import Room from "../models/Room.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import redis from "../utils/redisClient.js";
@@ -39,6 +40,15 @@ const initSocketHandlers = (io) => {
 
     // Add to in-memory map
     userSocketMap[sub] = socket.id;
+    // Auto-join all Socket.io rooms the user belongs to
+    const connectedUser = await User.findOne({ asgardeoId: sub });
+    if (connectedUser) {
+      const userRooms = await Room.find({ participants: connectedUser._id }).select("_id");
+      userRooms.forEach((room) => {
+        socket.join(room._id.toString());
+        console.log(`User ${sub} joined room ${room._id}`);
+      });
+    }
     console.log("Online users:", Object.keys(userSocketMap).length);
 
     // Mark as online in Redis
@@ -103,6 +113,25 @@ const initSocketHandlers = (io) => {
       const recipientSocketId = getSocketId(recipientId);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit("typing_stop", { senderId: sub });
+      }
+    });
+
+    socket.on("join_room", async ({ roomId }) => {
+      try {
+        const room = await Room.findById(roomId);
+        if (!room) return;
+
+        socket.join(roomId);
+
+        // Notify other room members
+        socket.to(roomId).emit("user_joined_room", {
+          roomId,
+          userId: sub,
+        });
+
+        console.log(`User ${sub} joined room ${roomId}`);
+      } catch (error) {
+        console.error("Error in join_room:", error);
       }
     });
 
