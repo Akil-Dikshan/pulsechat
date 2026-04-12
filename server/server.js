@@ -10,6 +10,7 @@ import initSocketHandlers from "./sockets/socketHandlers.js";
 import messagesRouter from "./routes/messages.js";
 import "./utils/redisClient.js";
 import uploadRouter from "./routes/upload.js";
+import roomsRouter from "./routes/rooms.js";
 dotenv.config();
 
 const app = express();
@@ -34,6 +35,7 @@ app.get("/", (req, res) => {
   res.json({ message: "PulseChat server is running" });
 });
 app.use("/api/upload", uploadRouter);
+app.use("/api/rooms", roomsRouter);
 // Socket.io
 io.use(socketAuthMiddleware);
 initSocketHandlers(io);
