@@ -33,3 +33,23 @@ export const getMessages = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+// GET /api/messages/room/:roomId?page=1
+export const getRoomMessages = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 50;
+    const skip = (page - 1) * limit;
+
+    const messages = await Message.find({ room: roomId })
+      .populate("sender", "username avatar")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json(messages.reverse());
+  } catch (error) {
+    console.error("Error in getRoomMessages:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

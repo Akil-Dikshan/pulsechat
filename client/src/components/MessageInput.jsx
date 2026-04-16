@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
 
-function MessageInput({ selectedUser }) {
+function MessageInput({ selectedUser, selectedRoom }) {
   const { getAccessToken } = useAuthContext();
   const { socket } = useSocket();
   const [content, setContent] = useState("");
@@ -11,21 +11,31 @@ function MessageInput({ selectedUser }) {
   const isTypingRef = useRef(false);
   const fileInputRef = useRef(null);
 
+  const isRoom = !!selectedRoom;
+
   const sendMessage = () => {
-    if (!content.trim() || !socket || !selectedUser) return;
+    if (!content.trim() || !socket) return;
+    if (!selectedUser && !selectedRoom) return;
 
-    socket.emit("private_message", {
-      recipientId: selectedUser.asgardeoId,
-      content: content.trim(),
-    });
+    if (isRoom) {
+      socket.emit("room_message", {
+        roomId: selectedRoom._id,
+        content: content.trim(),
+      });
+    } else {
+      socket.emit("private_message", {
+        recipientId: selectedUser.asgardeoId,
+        content: content.trim(),
+      });
 
-    if (isTypingRef.current) {
-      socket.emit("typing_stop", { recipientId: selectedUser.asgardeoId });
-      isTypingRef.current = false;
-    }
+      if (isTypingRef.current) {
+        socket.emit("typing_stop", { recipientId: selectedUser.asgardeoId });
+        isTypingRef.current = false;
+      }
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     }
 
     setContent("");
@@ -41,7 +51,7 @@ function MessageInput({ selectedUser }) {
   const handleChange = (e) => {
     setContent(e.target.value);
 
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedUser || isRoom) return;
 
     if (!isTypingRef.current) {
       socket.emit("typing_start", { recipientId: selectedUser.asgardeoId });
@@ -60,7 +70,8 @@ function MessageInput({ selectedUser }) {
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file || !socket || !selectedUser) return;
+    if (!file || !socket) return;
+    if (!selectedUser && !selectedRoom) return;
 
     try {
       setUploading(true);
@@ -71,9 +82,7 @@ function MessageInput({ selectedUser }) {
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -85,12 +94,21 @@ function MessageInput({ selectedUser }) {
 
       const { url, type, name } = await res.json();
 
-      socket.emit("private_message", {
-        recipientId: selectedUser.asgardeoId,
-        content: url,
-        type,
-        fileName: name,
-      });
+      if (isRoom) {
+        socket.emit("room_message", {
+          roomId: selectedRoom._id,
+          content: url,
+          type,
+          fileName: name,
+        });
+      } else {
+        socket.emit("private_message", {
+          recipientId: selectedUser.asgardeoId,
+          content: url,
+          type,
+          fileName: name,
+        });
+      }
     } catch (error) {
       console.error("File upload error:", error);
       alert("Upload failed. Please try again.");
@@ -110,7 +128,6 @@ function MessageInput({ selectedUser }) {
 
   return (
     <div className="px-6 py-4 border-t border-border flex items-center gap-3 flex-shrink-0">
-      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -119,7 +136,6 @@ function MessageInput({ selectedUser }) {
         className="hidden"
       />
 
-      {/* Paperclip button */}
       <button
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
@@ -137,7 +153,7 @@ function MessageInput({ selectedUser }) {
 
       <input
         type="text"
-        placeholder="Type a message..."
+        placeholder={isRoom ? `Message ${selectedRoom?.name}...` : "Type a message..."}
         value={content}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

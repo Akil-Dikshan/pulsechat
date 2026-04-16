@@ -6,6 +6,7 @@ import ChatWindow from "../components/ChatWindow";
 function Dashboard() {
   const { state, signOut, getAccessToken } = useAuthContext();
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   useEffect(() => {
     const syncUser = async () => {
@@ -29,6 +30,16 @@ function Dashboard() {
     }
   }, [state.isAuthenticated]);
 
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setSelectedRoom(null);
+  };
+
+  const handleSelectRoom = (room) => {
+    setSelectedRoom(room);
+    setSelectedUser(null);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="border-b border-border px-6 py-4 flex items-center justify-between flex-shrink-0">
@@ -48,10 +59,15 @@ function Dashboard() {
 
       <div className="flex flex-1 overflow-hidden">
         <ConversationList
-          onSelectUser={setSelectedUser}
+          onSelectUser={handleSelectUser}
+          onSelectRoom={handleSelectRoom}
           selectedUser={selectedUser}
+          selectedRoom={selectedRoom}
         />
-        <ChatWindow selectedUser={selectedUser} />
+        <ChatWindow
+          selectedUser={selectedUser}
+          selectedRoom={selectedRoom}
+        />
       </div>
     </div>
   );

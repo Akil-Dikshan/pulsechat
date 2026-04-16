@@ -3,10 +3,10 @@ import { useAuthContext } from "@asgardeo/auth-react";
 import { useSocket } from "../context/SocketContext";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
-import OnlineStatus from "./OnlineStatus";
 import TypingIndicator from "./TypingIndicator";
+import OnlineStatus from "./OnlineStatus";
 
-function ChatWindow({ selectedUser }) {
+function ChatWindow({ selectedUser, selectedRoom }) {
   const { getAccessToken } = useAuthContext();
   const { socket } = useSocket();
   const [messages, setMessages] = useState([]);
@@ -17,6 +17,9 @@ function ChatWindow({ selectedUser }) {
   const bottomRef = useRef(null);
   const topRef = useRef(null);
   const messagesContainerRef = useRef(null);
+
+  const isRoom = !!selectedRoom;
+  const isPrivate = !!selectedUser;
 
   // Get current user's MongoDB _id
   useEffect(() => {
@@ -44,58 +47,50 @@ function ChatWindow({ selectedUser }) {
     fetchCurrentUser();
   }, []);
 
-  // Reset and load messages when selected user changes
+  // Reset when conversation changes
   useEffect(() => {
-    if (!selectedUser) return;
-
+    if (!selectedUser && !selectedRoom) return;
     setMessages([]);
     setPage(1);
     setHasMore(true);
-  }, [selectedUser]);
+  }, [selectedUser, selectedRoom]);
 
-  // Load messages when page or selectedUser changes
+  // Load messages
   useEffect(() => {
-    if (!selectedUser) return;
+    if (!selectedUser && !selectedRoom) return;
 
     const loadMessages = async () => {
       try {
         setLoading(true);
         const token = await getAccessToken();
 
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/messages/${selectedUser._id}?page=${page}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const url = isRoom
+          ? `${import.meta.env.VITE_API_URL}/api/messages/room/${selectedRoom._id}?page=${page}`
+          : `${import.meta.env.VITE_API_URL}/api/messages/${selectedUser._id}?page=${page}`;
+
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         const data = await res.json();
 
-        if (data.length < 50) {
-          setHasMore(false);
-        }
-
-        // Mark messages as read when conversation is opened
-        if (socket && page === 1) {
-          socket.emit("mark_as_read", { senderId: selectedUser.asgardeoId });
-        }
+        if (data.length < 50) setHasMore(false);
 
         if (page === 1) {
           setMessages(data);
         } else {
-          // Preserve scroll position when prepending older messages
           const container = messagesContainerRef.current;
           const prevScrollHeight = container?.scrollHeight || 0;
-
           setMessages((prev) => [...data, ...prev]);
-
           requestAnimationFrame(() => {
             if (container) {
               container.scrollTop = container.scrollHeight - prevScrollHeight;
             }
           });
+        }
+
+        if (!isRoom && socket && page === 1) {
+          socket.emit("mark_as_read", { senderId: selectedUser.asgardeoId });
         }
       } catch (error) {
         console.error("Failed to load messages:", error);
@@ -105,9 +100,9 @@ function ChatWindow({ selectedUser }) {
     };
 
     loadMessages();
-  }, [selectedUser, page]);
+  }, [selectedUser, selectedRoom, page]);
 
-  // Infinite scroll — watch the top sentinel element
+  // Infinite scroll
   useEffect(() => {
     if (!hasMore || loading) return;
 
@@ -120,23 +115,33 @@ function ChatWindow({ selectedUser }) {
       { threshold: 1.0 }
     );
 
-    if (topRef.current) {
-      observer.observe(topRef.current);
-    }
-
+    if (topRef.current) observer.observe(topRef.current);
     return () => observer.disconnect();
   }, [hasMore, loading]);
 
-  // Listen for incoming messages via socket
+  // Socket listeners
   useEffect(() => {
     if (!socket) return;
 
     const handlePrivateMessage = (message) => {
-      setMessages((prev) => [...prev, message]);
+      if (isPrivate && (
+        message.sender._id === selectedUser?._id ||
+        message.recipient?._id === selectedUser?._id
+      )) {
+        setMessages((prev) => [...prev, message]);
+      }
     };
 
     const handleMessageSent = (message) => {
-      setMessages((prev) => [...prev, message]);
+      if (isPrivate) {
+        setMessages((prev) => [...prev, message]);
+      }
+    };
+
+    const handleRoomMessage = (message) => {
+      if (isRoom && message.room?._id === selectedRoom?._id) {
+        setMessages((prev) => [...prev, message]);
+      }
     };
 
     const handleMessagesRead = ({ byUserId }) => {
@@ -149,29 +154,31 @@ function ChatWindow({ selectedUser }) {
 
     socket.on("private_message", handlePrivateMessage);
     socket.on("message_sent", handleMessageSent);
+    socket.on("room_message", handleRoomMessage);
     socket.on("messages_read", handleMessagesRead);
 
     return () => {
       socket.off("private_message", handlePrivateMessage);
       socket.off("message_sent", handleMessageSent);
+      socket.off("room_message", handleRoomMessage);
       socket.off("messages_read", handleMessagesRead);
     };
-  }, [socket]);
+  }, [socket, selectedUser, selectedRoom, currentUserId]);
 
-  // Auto-scroll to bottom only on first page load and new messages
+  // Auto-scroll
   useEffect(() => {
     if (page === 1) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, page]);
 
-  if (!selectedUser) {
+  if (!selectedUser && !selectedRoom) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-semibold mb-2">Welcome to PulseChat</h2>
           <p className="text-muted-foreground">
-            Search for a user to start chatting.
+            Search for a user or select a group to start chatting.
           </p>
         </div>
       </div>
@@ -182,15 +189,25 @@ function ChatWindow({ selectedUser }) {
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Chat header */}
       <div className="px-6 py-4 border-b border-border flex items-center gap-3 flex-shrink-0">
-        <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-          {selectedUser.username[0].toUpperCase()}
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium ${isRoom ? "bg-teal-600" : "bg-primary text-primary-foreground"}`}>
+          {isRoom
+            ? selectedRoom.name[0].toUpperCase()
+            : selectedUser.username[0].toUpperCase()}
         </div>
         <div>
-          <p className="font-medium">{selectedUser.username}</p>
-          <OnlineStatus
-            userId={selectedUser.asgardeoId}
-            lastSeen={selectedUser.lastSeen}
-          />
+          <p className="font-medium">
+            {isRoom ? selectedRoom.name : selectedUser.username}
+          </p>
+          {isRoom ? (
+            <p className="text-xs text-muted-foreground">
+              {selectedRoom.participants.length} members
+            </p>
+          ) : (
+            <OnlineStatus
+              userId={selectedUser.asgardeoId}
+              lastSeen={selectedUser.lastSeen}
+            />
+          )}
         </div>
       </div>
 
@@ -199,31 +216,19 @@ function ChatWindow({ selectedUser }) {
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
       >
-        {/* Top sentinel — triggers infinite scroll */}
         <div ref={topRef} />
 
         {loading && page === 1 && (
-          <p className="text-sm text-muted-foreground text-center">
-            Loading messages...
-          </p>
+          <p className="text-sm text-muted-foreground text-center">Loading messages...</p>
         )}
-
         {loading && page > 1 && (
-          <p className="text-sm text-muted-foreground text-center">
-            Loading older messages...
-          </p>
+          <p className="text-sm text-muted-foreground text-center">Loading older messages...</p>
         )}
-
         {!hasMore && messages.length > 0 && (
-          <p className="text-xs text-muted-foreground text-center py-2">
-            No more messages
-          </p>
+          <p className="text-xs text-muted-foreground text-center py-2">No more messages</p>
         )}
-
         {!loading && messages.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center">
-            No messages yet. Say hello!
-          </p>
+          <p className="text-sm text-muted-foreground text-center">No messages yet. Say hello!</p>
         )}
 
         {messages.map((message) => (
@@ -231,17 +236,19 @@ function ChatWindow({ selectedUser }) {
             key={message._id}
             message={message}
             currentUserId={currentUserId}
+            isRoom={isRoom}
           />
         ))}
 
         <div ref={bottomRef} />
       </div>
 
-      {/* Typing indicator */}
-      <TypingIndicator selectedUser={selectedUser} />
+      {isPrivate && <TypingIndicator selectedUser={selectedUser} />}
 
-      {/* Message input */}
-      <MessageInput selectedUser={selectedUser} />
+      <MessageInput
+        selectedUser={selectedUser}
+        selectedRoom={selectedRoom}
+      />
     </div>
   );
 }
