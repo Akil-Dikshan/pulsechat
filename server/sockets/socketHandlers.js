@@ -172,6 +172,56 @@ const initSocketHandlers = (io) => {
       }
     });
 
+    socket.on("add_reaction", async ({ messageId, emoji }) => {
+      try {
+        const me = await User.findOne({ asgardeoId: sub });
+        if (!me) return;
+
+        const message = await Message.findById(messageId);
+        if (!message) return;
+
+        // Check if user already reacted with this emoji
+        const existingReaction = message.reactions.find(
+          (r) => r.user.toString() === me._id.toString() && r.emoji === emoji
+        );
+
+        if (existingReaction) {
+          // Remove reaction (toggle off)
+          await Message.findByIdAndUpdate(messageId, {
+            $pull: { reactions: { user: me._id, emoji } },
+          });
+        } else {
+          // Add reaction
+          await Message.findByIdAndUpdate(messageId, {
+            $push: { reactions: { user: me._id, emoji } },
+          });
+        }
+
+        const updatedMessage = await Message.findById(messageId)
+          .populate("sender", "username avatar")
+          .populate("reactions.user", "username");
+
+        // Emit to recipient or room
+        if (updatedMessage.room) {
+          io.to(updatedMessage.room.toString()).emit("reaction_updated", updatedMessage);
+        } else {
+          const recipientId = updatedMessage.recipient?.toString();
+          const senderId = updatedMessage.sender._id.toString();
+
+          const otherUserId = senderId === me._id.toString()
+            ? await User.findById(recipientId).then(u => u?.asgardeoId)
+            : await User.findById(senderId).then(u => u?.asgardeoId);
+
+          const otherSocketId = getSocketId(otherUserId);
+          if (otherSocketId) {
+            io.to(otherSocketId).emit("reaction_updated", updatedMessage);
+          }
+          socket.emit("reaction_updated", updatedMessage);
+        }
+      } catch (error) {
+        console.error("Error in add_reaction:", error);
+      }
+    }); 
     socket.on("mark_as_read", async ({ senderId }) => {
       try {
         const me = await User.findOne({ asgardeoId: sub });
