@@ -62,11 +62,23 @@ export const SocketProvider = ({ children }) => {
             ...prev,
             [senderId]: (prev[senderId] || 0) + 1,
           }));
+
+          // Show browser notification if tab is not focused
+          if (document.hidden && Notification.permission === "granted") {
+            new Notification(`New message from ${message.sender.username}`, {
+              body: message.type === "text" ? message.content : "Sent an attachment",
+              icon: "/favicon.ico",
+            });
+          }
         });
 
         setSocket(newSocket);
       } catch (error) {
         console.error("Failed to connect socket:", error);
+      }
+      // Request notification permission
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
       }
     };
 
