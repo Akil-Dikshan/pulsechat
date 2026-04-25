@@ -5,12 +5,12 @@ import RoomModal from "./RoomModal";
 
 function ConversationList({ onSelectUser, onSelectRoom, selectedUser, selectedRoom }) {
   const { getAccessToken } = useAuthContext();
-  const { socket } = useSocket();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [rooms, setRooms] = useState([]);
+  const { socket, unreadCounts, clearUnread } = useSocket();
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -50,6 +50,7 @@ function ConversationList({ onSelectUser, onSelectRoom, selectedUser, selectedRo
 
   const handleSelectUser = (user) => {
     onSelectUser(user);
+    clearUnread(user.asgardeoId);
     setQuery("");
     setResults([]);
   };
@@ -103,6 +104,11 @@ function ConversationList({ onSelectUser, onSelectRoom, selectedUser, selectedRo
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{user.username}</p>
                 </div>
+                {unreadCounts[user.asgardeoId] > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                    {unreadCounts[user.asgardeoId]}
+                  </span>
+                )}
               </button>
             ))}
           </div>

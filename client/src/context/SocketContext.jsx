@@ -10,6 +10,7 @@ export const SocketProvider = ({ children }) => {
   const { state, getAccessToken } = useAuthContext();
   const [socket, setSocket] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [unreadCounts, setUnreadCounts] = useState({});
 
   useEffect(() => {
     if (!state.isAuthenticated) {
@@ -18,6 +19,7 @@ export const SocketProvider = ({ children }) => {
         setSocket(null);
       }
       setOnlineUsers(new Set());
+      setUnreadCounts({});
       return;
     }
 
@@ -40,6 +42,7 @@ export const SocketProvider = ({ children }) => {
         newSocket.on("user_online", ({ userId }) => {
           setOnlineUsers((prev) => new Set([...prev, userId]));
         });
+
         newSocket.on("user_offline", ({ userId }) => {
           setOnlineUsers((prev) => {
             const next = new Set(prev);
@@ -47,8 +50,18 @@ export const SocketProvider = ({ children }) => {
             return next;
           });
         });
+
         newSocket.on("online_users", ({ userIds }) => {
           setOnlineUsers(new Set(userIds));
+        });
+
+        // Track unread counts for private messages
+        newSocket.on("private_message", (message) => {
+          const senderId = message.sender.asgardeoId || message.sender._id;
+          setUnreadCounts((prev) => ({
+            ...prev,
+            [senderId]: (prev[senderId] || 0) + 1,
+          }));
         });
 
         setSocket(newSocket);
@@ -64,8 +77,16 @@ export const SocketProvider = ({ children }) => {
     };
   }, [state.isAuthenticated]);
 
+  const clearUnread = (userId) => {
+    setUnreadCounts((prev) => {
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
+  };
+
   return (
-    <SocketContext.Provider value={{ socket, onlineUsers }}>
+    <SocketContext.Provider value={{ socket, onlineUsers, unreadCounts, clearUnread }}>
       {children}
     </SocketContext.Provider>
   );
