@@ -42,6 +42,6 @@ jobs:
 
       - name: Deploy to Railway
         working-directory: server
-        run: railway up --service pulsechat-server
+        run: railway up --service pulsechat
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
