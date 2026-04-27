@@ -11,7 +11,9 @@ import messagesRouter from "./routes/messages.js";
 import "./utils/redisClient.js";
 import uploadRouter from "./routes/upload.js";
 import roomsRouter from "./routes/rooms.js";
-dotenv.config();
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config();
+}
 
 const app = express();
 const httpServer = createServer(app);
