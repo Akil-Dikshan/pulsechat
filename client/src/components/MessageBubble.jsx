@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { useSocket } from "../context/SocketContext";
 import FilePreview from "./FilePreview";
+import { cn } from "@/lib/utils";
 
-function MessageBubble({ message, currentUserId, isRoom }) {
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "✅"];
+
+function nameHue(name = "") {
+  return Math.abs(name.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 360;
+}
+
+export default function MessageBubble({ message, prevMessage, currentUserId, isRoom }) {
   const { socket } = useSocket();
-  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
-  const isSent = message.sender._id === currentUserId;
+  const isSent    = message.sender._id === currentUserId;
+  const isFirst   = !prevMessage || prevMessage.sender._id !== message.sender._id;
+  const senderName = message.sender?.username ?? "";
+  const hue        = nameHue(senderName);
 
   const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
@@ -16,116 +26,122 @@ function MessageBubble({ message, currentUserId, isRoom }) {
   const handleReaction = (emoji) => {
     if (!socket) return;
     socket.emit("add_reaction", { messageId: message._id, emoji });
-    setShowReactionPicker(false);
+    setShowPicker(false);
   };
 
-  // Group reactions by emoji
-  const groupedReactions = message.reactions?.reduce((acc, reaction) => {
-    if (!acc[reaction.emoji]) {
-      acc[reaction.emoji] = { count: 0, users: [] };
-    }
-    acc[reaction.emoji].count++;
-    acc[reaction.emoji].users.push(reaction.user?.username || "");
+  const groupedReactions = (message.reactions ?? []).reduce((acc, r) => {
+    if (!acc[r.emoji]) acc[r.emoji] = { count: 0, users: [] };
+    acc[r.emoji].count++;
+    acc[r.emoji].users.push(r.user?.username ?? "");
     return acc;
   }, {});
 
-  const ReadReceipt = () => {
+  const statusIcon = () => {
     if (!isSent) return null;
-    if (message.read) return <span className="text-blue-500 text-xs">✓✓</span>;
-    return <span className="text-muted-foreground text-xs">✓</span>;
+    if (message.read)      return <span className="text-lime text-[10px] font-bold">✓✓</span>;
+    if (message.delivered) return <span className="text-muted-foreground text-[10px]">✓✓</span>;
+    return <span className="text-muted-foreground text-[10px]">✓</span>;
   };
-
-  const isMedia = message.type === "image" || message.type === "file";
-  const quickEmojis = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
   return (
     <div
-      className={`flex flex-col group ${isSent ? "items-end" : "items-start"}`}
-      onMouseLeave={() => setShowReactionPicker(false)}
-    >
-      {!isSent && (
-        <p className="text-xs text-muted-foreground mb-1 px-1">
-          {message.sender.username}
-        </p>
+      className={cn(
+        "flex group",
+        isSent ? "flex-row-reverse" : "flex-row",
+        "items-end gap-2",
+        isFirst ? "mt-3" : "mt-0.5",
+        Object.keys(groupedReactions).length > 0 ? "mb-4" : "mb-0"
       )}
-
-      <div className="relative flex items-center gap-1">
-        {/* Reaction button — appears on hover */}
-        {!isSent && (
-          <button
-            onClick={() => setShowReactionPicker((prev) => !prev)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground text-sm"
-          >
-            😊
-          </button>
-        )}
-
-        <div
-          className={`rounded-2xl px-4 py-2 max-w-xs lg:max-w-md ${
-            isMedia && message.type === "image"
-              ? "bg-transparent p-0"
-              : isSent
-              ? "bg-primary text-primary-foreground rounded-br-sm"
-              : "bg-accent text-accent-foreground rounded-bl-sm"
-          }`}
-        >
-          <FilePreview
-            content={message.content}
-            type={message.type}
-            isSent={isSent}
-          />
-        </div>
-
-        {/* Reaction button for sent messages */}
-        {isSent && (
-          <button
-            onClick={() => setShowReactionPicker((prev) => !prev)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground text-sm"
-          >
-            😊
-          </button>
-        )}
-
-        {/* Quick emoji picker */}
-        {showReactionPicker && (
+      onMouseLeave={() => setShowPicker(false)}
+    >
+      {/* Avatar (received only, first in run) */}
+      <div className="w-7 flex-shrink-0 self-end">
+        {!isSent && isFirst && (
           <div
-            className={`absolute bottom-8 ${isSent ? "right-8" : "left-8"} bg-background border border-border rounded-full px-2 py-1 flex gap-1 shadow-lg z-10`}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-[#111]"
+            style={{ background: `hsl(${hue} 70% 55%)` }}
           >
-            {quickEmojis.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleReaction(emoji)}
-                className="hover:scale-125 transition-transform text-base"
-              >
-                {emoji}
-              </button>
-            ))}
+            {senderName[0]?.toUpperCase()}
           </div>
         )}
       </div>
 
-      <div className={`flex items-center gap-1 mt-1 px-1 ${isSent ? "flex-row-reverse" : ""}`}>
-        <p className="text-xs text-muted-foreground">{formattedTime}</p>
-        <ReadReceipt />
-      </div>
+      {/* Bubble + reactions + meta */}
+      <div className={cn("flex flex-col max-w-[65%]", isSent ? "items-end" : "items-start", "relative")}>
+        {/* Sender name (group chats, first in run) */}
+        {!isSent && isFirst && isRoom && (
+          <p className="text-[11px] text-muted-foreground font-medium mb-1 px-1">{senderName}</p>
+        )}
 
-      {/* Reaction display */}
-      {groupedReactions && Object.keys(groupedReactions).length > 0 && (
-        <div className={`flex flex-wrap gap-1 mt-1 px-1 ${isSent ? "justify-end" : "justify-start"}`}>
-          {Object.entries(groupedReactions).map(([emoji, data]) => (
-            <button
-              key={emoji}
-              onClick={() => handleReaction(emoji)}
-              className="bg-accent border border-border rounded-full px-2 py-0.5 text-xs flex items-center gap-1 hover:bg-primary hover:text-primary-foreground transition-colors"
-              title={data.users.join(", ")}
+        <div className="relative">
+          {/* React button (hover) */}
+          <button
+            onClick={() => setShowPicker((p) => !p)}
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity",
+              "w-7 h-7 rounded-lg bg-elevated border border-border flex items-center justify-center text-sm z-10",
+              isSent ? "-left-9" : "-right-9"
+            )}
+          >
+            😊
+          </button>
+
+          {/* Emoji picker */}
+          {showPicker && (
+            <div
+              className={cn(
+                "absolute bottom-[110%] bg-elevated rounded-xl border border-border p-2 flex gap-1.5 z-20 shadow-xl animate-fade-in",
+                isSent ? "right-0" : "left-0"
+              )}
             >
-              {emoji} {data.count}
-            </button>
-          ))}
+              {QUICK_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => handleReaction(e)}
+                  className="text-lg hover:scale-125 transition-transform p-1 rounded-md hover:bg-muted"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Bubble */}
+          <div
+            className={cn(
+              "px-3.5 py-2.5 text-sm leading-relaxed break-words",
+              isSent
+                ? "bg-lime text-primary-foreground rounded-[16px_4px_16px_16px]"
+                : "bg-elevated text-foreground rounded-[4px_16px_16px_16px]"
+            )}
+          >
+            <FilePreview content={message.content} type={message.type} isSent={isSent} />
+          </div>
         </div>
-      )}
+
+        {/* Reactions */}
+        {Object.keys(groupedReactions).length > 0 && (
+          <div className={cn("flex flex-wrap gap-1 mt-1.5", isSent ? "justify-end" : "justify-start")}>
+            {Object.entries(groupedReactions).map(([emoji, data]) => (
+              <button
+                key={emoji}
+                onClick={() => handleReaction(emoji)}
+                className="bg-elevated border border-border rounded-full px-2 py-0.5 text-xs flex items-center gap-1 hover:border-lime/40 transition-colors"
+                title={data.users.join(", ")}
+              >
+                {emoji}
+                <span className="text-muted-foreground font-medium">{data.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Time + status */}
+        <div className={cn("flex items-center gap-1 mt-1 px-0.5", isSent ? "flex-row-reverse" : "")}>
+          <span className="text-[10px] text-muted-foreground/60">{formattedTime}</span>
+          {statusIcon()}
+        </div>
+      </div>
     </div>
   );
 }
-
-export default MessageBubble;
