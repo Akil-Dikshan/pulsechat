@@ -3,14 +3,28 @@ import User from "../models/User.js";
 // POST /api/users/sync
 export const syncUser = async (req, res) => {
   try {
-    const { sub, username, email, picture } = req.user;
+    const { sub, username, email, picture, given_name, family_name, preferred_username } = req.user;
+
+    // Build the best possible display name from available claims.
+    // Priority: full name > preferred_username > username (if not an email) > email local-part
+    let displayName;
+    if (given_name || family_name) {
+      displayName = `${given_name || ""} ${family_name || ""}`.trim();
+    } else if (preferred_username && !preferred_username.includes("@")) {
+      displayName = preferred_username;
+    } else if (username && !username.includes("@")) {
+      displayName = username;
+    } else {
+      // Fall back to the part before the @ in email
+      displayName = (email || sub).split("@")[0];
+    }
 
     const user = await User.findOneAndUpdate(
       { asgardeoId: sub },
       {
         $set: {
-          username: username || email || sub,
-          email: email || username || "",
+          username: displayName,
+          email: email || "",
           avatar: picture || "",
         },
         $setOnInsert: {
@@ -41,7 +55,10 @@ export const searchUsers = async (req, res) => {
     }
 
     const users = await User.find({
-      username: { $regex: q, $options: "i" },
+      $or: [
+        { username: { $regex: q, $options: "i" } },
+        { email:    { $regex: q, $options: "i" } },
+      ],
       asgardeoId: { $ne: req.user.sub },
     })
       .select("username email avatar status lastSeen asgardeoId")
