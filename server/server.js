@@ -11,20 +11,32 @@ import messagesRouter from "./routes/messages.js";
 import "./utils/redisClient.js";
 import uploadRouter from "./routes/upload.js";
 import roomsRouter from "./routes/rooms.js";
-dotenv.config();
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config();
+}
 
 const app = express();
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://pulsechat-beta.vercel.app",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
     methods: ["GET", "POST"],
   },
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://pulsechat-beta.vercel.app",
+    process.env.CLIENT_URL,
+  ].filter(Boolean),
+}));
 app.use(express.json());
 
 // Routes
