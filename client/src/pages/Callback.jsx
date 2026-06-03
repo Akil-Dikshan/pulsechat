@@ -7,14 +7,18 @@ function Callback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (state.isAuthenticated) {
-      navigate("/dashboard");
+    // Wait until Asgardeo has fully resolved before navigating
+    if (!state.isLoading && state.isAuthenticated) {
+      navigate("/dashboard", { replace: true });
     }
-  }, [state.isAuthenticated, navigate]);
+    if (!state.isLoading && !state.isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [state.isLoading, state.isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <p className="text-foreground text-lg">Signing you in...</p>
+      <p className="text-foreground text-lg">Signing you in…</p>
     </div>
   );
 }
