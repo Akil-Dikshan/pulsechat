@@ -331,15 +331,17 @@ export default function Landing() {
     if (!state.isLoading && state.isAuthenticated) navigate("/dashboard");
   }, [state.isLoading, state.isAuthenticated, navigate]);
 
+  const handleSignIn = () => signIn();
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      <Nav onSignIn={signIn} />
-      <Hero onSignIn={signIn} />
+      <Nav onSignIn={handleSignIn} />
+      <Hero onSignIn={handleSignIn} />
       <Stats />
       <Features />
       <HowItWorks />
       <Testimonials />
-      <CTA onSignIn={signIn} />
+      <CTA onSignIn={handleSignIn} />
       <Footer />
     </div>
   );
