@@ -150,5 +150,5 @@ server/node_modules/
 # Build
 client/build/
 
-# Logs
-npm-debug.log*
+# Claude Code
+.claude/
