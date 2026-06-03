@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useAuthContext } from "@asgardeo/auth-react";
 import { useNavigate } from "react-router-dom";
 import {
   Zap, Lock, MessageSquare, Video, Smile, Paperclip,
@@ -322,20 +323,23 @@ function Footer() {
 
 // ── Page ──────────────────────────────────────────────────────────────────
 export default function Landing() {
+  const { signIn, state } = useAuthContext();
   const navigate = useNavigate();
   useReveal();
 
-  const goToLogin = () => navigate("/login");
+  useEffect(() => {
+    if (!state.isLoading && state.isAuthenticated) navigate("/dashboard");
+  }, [state.isLoading, state.isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      <Nav onSignIn={goToLogin} />
-      <Hero onSignIn={goToLogin} />
+      <Nav onSignIn={signIn} />
+      <Hero onSignIn={signIn} />
       <Stats />
       <Features />
       <HowItWorks />
       <Testimonials />
-      <CTA onSignIn={goToLogin} />
+      <CTA onSignIn={signIn} />
       <Footer />
     </div>
   );
